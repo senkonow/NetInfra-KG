@@ -76,12 +76,13 @@ class InfrastructureDataGenerator:
                 self.entities.append(port)
                 
                 # Create relationship: Switch -> Port
-                self.relationships.append(Relationship(
+                rel = Relationship(
                     source_id=switch.id,
                     target_id=port.id,
-                    relationship_type=RelationshipType.CONTAINS,
-                    properties={"port_number": port_num}
-                ))
+                    relationship_type=RelationshipType.CONTAINS
+                )
+                rel.set_properties({"port_number": port_num})
+                self.relationships.append(rel)
         
         return ports
     
@@ -152,12 +153,13 @@ class InfrastructureDataGenerator:
                 self.entities.append(vm)
                 
                 # Create relationship: Server -> VM
-                self.relationships.append(Relationship(
+                rel = Relationship(
                     source_id=server.id,
                     target_id=vm.id,
-                    relationship_type=RelationshipType.HOSTS,
-                    properties={"hypervisor": vm.hypervisor}
-                ))
+                    relationship_type=RelationshipType.HOSTS
+                )
+                rel.set_properties({"hypervisor": vm.hypervisor})
+                self.relationships.append(rel)
         
         return vms
     
@@ -179,28 +181,32 @@ class InfrastructureDataGenerator:
                     namespace=namespace,
                     pod_ip=self.generate_ip_address("10.244"),
                     node_name=vm.hostname,
-                    labels={
-                        "app": f"app-{random.randint(1, 10)}",
-                        "version": f"v{random.randint(1, 5)}.{random.randint(0, 9)}.{random.randint(0, 9)}",
-                        "environment": random.choice(["prod", "staging", "dev"])
-                    },
-                    annotations={
-                        "created-by": "deployment-controller",
-                        "last-restart": datetime.now().isoformat()
-                    },
                     phase=random.choice(phases),
                     restart_count=random.randint(0, 10)
                 )
+                
+                # Set k8s labels and annotations using the new methods
+                pod.set_k8s_labels({
+                    "app": f"app-{random.randint(1, 10)}",
+                    "version": f"v{random.randint(1, 5)}.{random.randint(0, 9)}.{random.randint(0, 9)}",
+                    "environment": random.choice(["prod", "staging", "dev"])
+                })
+                
+                pod.set_annotations({
+                    "created-by": "deployment-controller",
+                    "last-restart": datetime.now().isoformat()
+                })
                 pods.append(pod)
                 self.entities.append(pod)
                 
                 # Create relationship: VM -> Pod
-                self.relationships.append(Relationship(
+                rel = Relationship(
                     source_id=vm.id,
                     target_id=pod.id,
-                    relationship_type=RelationshipType.RUNS_ON,
-                    properties={"namespace": namespace, "node": vm.hostname}
-                ))
+                    relationship_type=RelationshipType.RUNS_ON
+                )
+                rel.set_properties({"namespace": namespace, "node": vm.hostname})
+                self.relationships.append(rel)
         
         return pods
     
@@ -229,25 +235,28 @@ class InfrastructureDataGenerator:
                     image_tag=image.split(':')[1] if ':' in image else "latest",
                     container_id=self.generate_id("cid"),
                     ports=[f"{random.randint(3000, 9000)}", f"{random.randint(8000, 9000)}"],
-                    environment_vars={
-                        "ENV": random.choice(["production", "staging", "development"]),
-                        "LOG_LEVEL": random.choice(["INFO", "DEBUG", "WARN"]),
-                        "MAX_CONNECTIONS": str(random.randint(100, 1000))
-                    },
                     cpu_limit=f"{random.randint(100, 2000)}m",
                     memory_limit=f"{random.randint(128, 4096)}Mi",
                     status=random.choice(statuses)
                 )
+                
+                # Set environment variables using the new method
+                container.set_environment_vars({
+                    "ENV": random.choice(["production", "staging", "development"]),
+                    "LOG_LEVEL": random.choice(["INFO", "DEBUG", "WARN"]),
+                    "MAX_CONNECTIONS": str(random.randint(100, 1000))
+                })
                 containers.append(container)
                 self.entities.append(container)
                 
                 # Create relationship: Pod -> Container
-                self.relationships.append(Relationship(
+                rel = Relationship(
                     source_id=pod.id,
                     target_id=container.id,
-                    relationship_type=RelationshipType.CONTAINS,
-                    properties={"image": container.image, "status": container.status}
-                ))
+                    relationship_type=RelationshipType.CONTAINS
+                )
+                rel.set_properties({"image": container.image, "status": container.status})
+                self.relationships.append(rel)
         
         return containers
     
@@ -256,22 +265,24 @@ class InfrastructureDataGenerator:
         # Connect ports to VLANs
         for port in random.sample(ports, min(len(ports), len(vlans) * 3)):
             vlan = random.choice(vlans)
-            self.relationships.append(Relationship(
+            rel = Relationship(
                 source_id=port.id,
                 target_id=vlan.id,
-                relationship_type=RelationshipType.BELONGS_TO,
-                properties={"access_type": random.choice(["access", "trunk"])}
-            ))
+                relationship_type=RelationshipType.BELONGS_TO
+            )
+            rel.set_properties({"access_type": random.choice(["access", "trunk"])})
+            self.relationships.append(rel)
         
         # Connect servers to VLANs
         for server in servers:
             vlan = random.choice(vlans)
-            self.relationships.append(Relationship(
+            rel = Relationship(
                 source_id=server.id,
                 target_id=vlan.id,
-                relationship_type=RelationshipType.CONNECTED_TO,
-                properties={"interface": "eth0"}
-            ))
+                relationship_type=RelationshipType.CONNECTED_TO
+            )
+            rel.set_properties({"interface": "eth0"})
+            self.relationships.append(rel)
     
     def generate_full_topology(self) -> Tuple[List, List]:
         """Generate complete network topology"""

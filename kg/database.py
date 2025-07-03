@@ -108,6 +108,13 @@ class Neo4jKnowledgeGraph:
             entity_dict['created_at'] = entity_dict['created_at'].isoformat()
             entity_dict['updated_at'] = entity_dict['updated_at'].isoformat()
             
+            # Remove any remaining dict fields that could cause issues
+            # (the JSON serialization should have already handled these)
+            for key in list(entity_dict.keys()):
+                if isinstance(entity_dict[key], dict):
+                    print(f"⚠️  Removing dict field {key} - should be serialized as JSON")
+                    del entity_dict[key]
+            
             # Create node with Entity label and specific type label
             labels = f"Entity:{entity.type.value}"
             
@@ -125,6 +132,7 @@ class Neo4jKnowledgeGraph:
                     return True
             except Exception as e:
                 print(f"❌ Failed to create entity {entity.name}: {e}")
+                print(f"   Entity properties: {entity_dict}")
                 return False
         
         return False
@@ -134,6 +142,15 @@ class Neo4jKnowledgeGraph:
         with self.driver.session() as session:
             rel_dict = relationship.dict()
             rel_dict['created_at'] = rel_dict['created_at'].isoformat()
+            
+            # Remove any dict fields that could cause issues
+            for key in list(rel_dict.keys()):
+                if isinstance(rel_dict[key], dict):
+                    print(f"⚠️  Removing dict field {key} from relationship - should be serialized as JSON")
+                    del rel_dict[key]
+            
+            # Use the relationship properties (excluding source/target IDs and type)
+            rel_properties = {k: v for k, v in rel_dict.items() if k not in ['source_id', 'target_id', 'relationship_type']}
             
             query = f"""
             MATCH (source:Entity {{id: $source_id}})
@@ -148,7 +165,7 @@ class Neo4jKnowledgeGraph:
                     query, 
                     source_id=relationship.source_id,
                     target_id=relationship.target_id,
-                    properties=rel_dict['properties']
+                    properties=rel_properties
                 )
                 record = result.single()
                 if record:
@@ -156,6 +173,7 @@ class Neo4jKnowledgeGraph:
                     return True
             except Exception as e:
                 print(f"❌ Failed to create relationship: {e}")
+                print(f"   Relationship properties: {rel_properties}")
                 return False
         
         return False

@@ -1,10 +1,11 @@
 """
 Pydantic models for network infrastructure entities
 """
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any, Literal, Union
+from pydantic import BaseModel, Field, validator
 from datetime import datetime
 from enum import Enum
+import json
 
 
 class EntityType(str, Enum):
@@ -24,13 +25,31 @@ class BaseEntity(BaseModel):
     type: EntityType = Field(..., description="Entity type")
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
-    properties: Dict[str, Any] = Field(default_factory=dict, description="Additional properties")
-    labels: List[str] = Field(default_factory=list, description="Neo4j labels")
+    # Store as JSON string for Neo4j compatibility
+    properties_json: str = Field(default="{}", description="Additional properties as JSON")
+    neo4j_labels: List[str] = Field(default_factory=list, description="Neo4j labels")
+    
+    @validator('properties_json', pre=True)
+    def serialize_properties(cls, v):
+        if isinstance(v, dict):
+            return json.dumps(v)
+        return v
+    
+    def set_properties(self, properties: Dict[str, Any]) -> None:
+        """Set additional properties"""
+        self.properties_json = json.dumps(properties)
+    
+    def get_properties(self) -> Dict[str, Any]:
+        """Get additional properties"""
+        try:
+            return json.loads(self.properties_json)
+        except json.JSONDecodeError:
+            return {}
 
 
 class NetworkSwitch(BaseEntity):
     """Network Switch model"""
-    type: EntityType = Field(default=EntityType.NETWORK_SWITCH, const=True)
+    type: Literal[EntityType.NETWORK_SWITCH] = EntityType.NETWORK_SWITCH
     model: Optional[str] = Field(None, description="Switch model")
     vendor: Optional[str] = Field(None, description="Switch vendor")
     ip_address: Optional[str] = Field(None, description="Management IP address")
@@ -41,7 +60,7 @@ class NetworkSwitch(BaseEntity):
 
 class NetworkPort(BaseEntity):
     """Network Port model"""
-    type: EntityType = Field(default=EntityType.NETWORK_PORT, const=True)
+    type: Literal[EntityType.NETWORK_PORT] = EntityType.NETWORK_PORT
     port_number: int = Field(..., description="Port number on the switch")
     port_type: Optional[str] = Field(None, description="Port type (e.g., FastEthernet, GigabitEthernet)")
     status: Optional[str] = Field(None, description="Port status (up/down)")
@@ -51,7 +70,7 @@ class NetworkPort(BaseEntity):
 
 class VLAN(BaseEntity):
     """VLAN model"""
-    type: EntityType = Field(default=EntityType.VLAN, const=True)
+    type: Literal[EntityType.VLAN] = EntityType.VLAN
     vlan_id: int = Field(..., description="VLAN ID")
     subnet: Optional[str] = Field(None, description="Subnet associated with VLAN")
     gateway: Optional[str] = Field(None, description="Gateway IP")
@@ -60,7 +79,7 @@ class VLAN(BaseEntity):
 
 class Server(BaseEntity):
     """Physical Server model"""
-    type: EntityType = Field(default=EntityType.SERVER, const=True)
+    type: Literal[EntityType.SERVER] = EntityType.SERVER
     hostname: str = Field(..., description="Server hostname")
     ip_address: Optional[str] = Field(None, description="Primary IP address")
     mac_address: Optional[str] = Field(None, description="MAC address")
@@ -73,7 +92,7 @@ class Server(BaseEntity):
 
 class VirtualMachine(BaseEntity):
     """Virtual Machine model"""
-    type: EntityType = Field(default=EntityType.VIRTUAL_MACHINE, const=True)
+    type: Literal[EntityType.VIRTUAL_MACHINE] = EntityType.VIRTUAL_MACHINE
     hostname: str = Field(..., description="VM hostname")
     ip_address: Optional[str] = Field(None, description="VM IP address")
     cpu_cores: Optional[int] = Field(None, description="Allocated CPU cores")
@@ -86,27 +105,81 @@ class VirtualMachine(BaseEntity):
 
 class KubernetesPod(BaseEntity):
     """Kubernetes Pod model"""
-    type: EntityType = Field(default=EntityType.KUBERNETES_POD, const=True)
+    type: Literal[EntityType.KUBERNETES_POD] = EntityType.KUBERNETES_POD
     namespace: str = Field(..., description="Kubernetes namespace")
     pod_ip: Optional[str] = Field(None, description="Pod IP address")
     node_name: Optional[str] = Field(None, description="Kubernetes node name")
-    labels: Dict[str, str] = Field(default_factory=dict, description="Kubernetes labels")
-    annotations: Dict[str, str] = Field(default_factory=dict, description="Kubernetes annotations")
+    # Store as JSON strings for Neo4j compatibility
+    k8s_labels_json: str = Field(default="{}", description="Kubernetes labels as JSON")
+    annotations_json: str = Field(default="{}", description="Kubernetes annotations as JSON")
     phase: Optional[str] = Field(None, description="Pod phase (Running, Pending, etc.)")
     restart_count: Optional[int] = Field(None, description="Container restart count")
+    
+    @validator('k8s_labels_json', pre=True)
+    def serialize_k8s_labels(cls, v):
+        if isinstance(v, dict):
+            return json.dumps(v)
+        return v
+    
+    @validator('annotations_json', pre=True)
+    def serialize_annotations(cls, v):
+        if isinstance(v, dict):
+            return json.dumps(v)
+        return v
+    
+    def set_k8s_labels(self, labels: Dict[str, str]) -> None:
+        """Set Kubernetes labels"""
+        self.k8s_labels_json = json.dumps(labels)
+    
+    def get_k8s_labels(self) -> Dict[str, str]:
+        """Get Kubernetes labels"""
+        try:
+            return json.loads(self.k8s_labels_json)
+        except json.JSONDecodeError:
+            return {}
+    
+    def set_annotations(self, annotations: Dict[str, str]) -> None:
+        """Set Kubernetes annotations"""
+        self.annotations_json = json.dumps(annotations)
+    
+    def get_annotations(self) -> Dict[str, str]:
+        """Get Kubernetes annotations"""
+        try:
+            return json.loads(self.annotations_json)
+        except json.JSONDecodeError:
+            return {}
 
 
 class Container(BaseEntity):
     """Container model"""
-    type: EntityType = Field(default=EntityType.CONTAINER, const=True)
+    type: Literal[EntityType.CONTAINER] = EntityType.CONTAINER
     image: str = Field(..., description="Container image")
     image_tag: Optional[str] = Field(None, description="Image tag")
     container_id: Optional[str] = Field(None, description="Container runtime ID")
+    # Store as simple array for Neo4j compatibility
     ports: List[str] = Field(default_factory=list, description="Exposed ports")
-    environment_vars: Dict[str, str] = Field(default_factory=dict, description="Environment variables")
+    # Store as JSON string for Neo4j compatibility
+    environment_vars_json: str = Field(default="{}", description="Environment variables as JSON")
     cpu_limit: Optional[str] = Field(None, description="CPU limit")
     memory_limit: Optional[str] = Field(None, description="Memory limit")
     status: Optional[str] = Field(None, description="Container status")
+    
+    @validator('environment_vars_json', pre=True)
+    def serialize_environment_vars(cls, v):
+        if isinstance(v, dict):
+            return json.dumps(v)
+        return v
+    
+    def set_environment_vars(self, env_vars: Dict[str, str]) -> None:
+        """Set environment variables"""
+        self.environment_vars_json = json.dumps(env_vars)
+    
+    def get_environment_vars(self) -> Dict[str, str]:
+        """Get environment variables"""
+        try:
+            return json.loads(self.environment_vars_json)
+        except json.JSONDecodeError:
+            return {}
 
 
 class Relationship(BaseModel):
@@ -114,8 +187,26 @@ class Relationship(BaseModel):
     source_id: str = Field(..., description="Source entity ID")
     target_id: str = Field(..., description="Target entity ID")
     relationship_type: str = Field(..., description="Type of relationship")
-    properties: Dict[str, Any] = Field(default_factory=dict, description="Relationship properties")
+    # Store as JSON string for Neo4j compatibility
+    properties_json: str = Field(default="{}", description="Relationship properties as JSON")
     created_at: datetime = Field(default_factory=datetime.now)
+    
+    @validator('properties_json', pre=True)
+    def serialize_properties(cls, v):
+        if isinstance(v, dict):
+            return json.dumps(v)
+        return v
+    
+    def set_properties(self, properties: Dict[str, Any]) -> None:
+        """Set relationship properties"""
+        self.properties_json = json.dumps(properties)
+    
+    def get_properties(self) -> Dict[str, Any]:
+        """Get relationship properties"""
+        try:
+            return json.loads(self.properties_json)
+        except json.JSONDecodeError:
+            return {}
 
 
 # Relationship types

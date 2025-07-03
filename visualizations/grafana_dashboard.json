@@ -1,0 +1,104 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Network Infrastructure Knowledge Graph",
+    "tags": [
+      "infrastructure",
+      "network",
+      "kubernetes"
+    ],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Entity Count by Type",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "\n                            MATCH (n)\n                            RETURN labels(n)[1] as entity_type, count(n) as count\n                            ORDER BY count DESC\n                            ",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "Relationship Distribution",
+        "type": "barchart",
+        "targets": [
+          {
+            "expr": "\n                            MATCH ()-[r]->()\n                            RETURN type(r) as relationship_type, count(r) as count\n                            ORDER BY count DESC\n                            ",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "Infrastructure Topology Metrics",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "\n                            MATCH (n)\n                            RETURN \n                                count(n) as total_entities,\n                                count(DISTINCT labels(n)[1]) as entity_types\n                            ",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "h": 4,
+          "w": 24,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "Resource Utilization",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "\n                            MATCH (s:Server)\n                            RETURN \n                                sum(s.cpu_cores) as total_cpu_cores,\n                                sum(s.memory_gb) as total_memory_gb,\n                                count(s) as server_count\n                            ",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 12
+        }
+      },
+      {
+        "id": 5,
+        "title": "Container Distribution by Namespace",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "\n                            MATCH (p:KubernetesPod)\n                            RETURN p.namespace as namespace, count(p) as pod_count\n                            ORDER BY pod_count DESC\n                            ",
+            "format": "table"
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 12
+        }
+      }
+    ],
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}
