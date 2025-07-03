@@ -53,8 +53,8 @@ class KnowledgeGraphVisualizer:
         
         G = nx.DiGraph()
         
-        # Add nodes
-        for entity in graph_data['entities']:
+        # Add nodes (get_full_topology_graph returns 'nodes', not 'entities')
+        for entity in graph_data.get('nodes', []):
             entity_type = entity.get('type', 'Unknown')
             if filter_entities and entity_type not in filter_entities:
                 continue
@@ -68,13 +68,13 @@ class KnowledgeGraphVisualizer:
                 **{k: v for k, v in entity.items() if k not in ['id', 'name', 'type']}
             )
         
-        # Add edges
-        for relationship in graph_data['relationships']:
-            source = relationship['source']
-            target = relationship['target']
-            rel_type = relationship['type']
+        # Add edges (update to use correct relationship format)
+        for relationship in graph_data.get('relationships', []):
+            source = relationship.get('source_id')
+            target = relationship.get('target_id')
+            rel_type = relationship.get('relationship_type')
             
-            if G.has_node(source) and G.has_node(target):
+            if source and target and G.has_node(source) and G.has_node(target):
                 G.add_edge(
                     source,
                     target,
